@@ -7,5 +7,5 @@ gait_names.g4 = 'largeSW\';
 gait_names.g5 = 'largeTS\';
 gait_names.g6 = 'toein_largeSW\';
 gait_names.g7 = 'toeout_largeSW\';
-gait_names.g8 = 'changeLocation\';
+gait_names.g8 = 'change_location\';
 end

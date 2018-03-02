@@ -1,25 +1,30 @@
+# mainly use the right leg data because it contains less noise
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import butter
+
+import tensorflow as tf
+
 from KAMDataClass import KAMData
-import scipy.io as sio
-from scipy.signal import butter, filtfilt
 import csv
+
 
 file_date = '20171229\\'
 processed_data_path = 'D:\Tian\Research\Projects\ML Project\processed_data\\' + file_date
-# gait names in the sequence of the experiment
-if file_date == '20171229\\':
-    gait_names = (
-    'normal', 'toeout', 'toein', 'largeSW', 'largeTS', 'toein_largeSW', 'toeout_largeSW', 'change_location')
-else:
-    gait_names = ('normal', 'toeout', 'toein', 'largeSW', 'largeTS', 'toein_largeSW', 'toeout_largeSW')
 
-knee_marker_names = ('l_knee_l_x', 'l_knee_l_y', 'l_knee_l_z')
-
-gait_num = 7
 # validation_set_len = 10000  # the length of validation
 test_set_len = 500  # the length of data for test
+gait_num = 7
+cut_zero_data = False  # cut data of KAM == 0
+
+# gait names in the sequence of the experiment
+if file_date == '20171229\\':
+    gait_names = ('normal', 'toeout', 'toein', 'largeSW', 'largeTS',
+                  'toein_largeSW', 'toeout_largeSW', 'change_location')
+else:
+    gait_names = ('normal', 'toeout', 'toein', 'largeSW', 'largeTS', 'toein_largeSW', 'toeout_largeSW')
 
 with open(processed_data_path + 'subject_info.csv') as subject_info_file:
     reader = csv.reader(subject_info_file)
@@ -59,16 +64,20 @@ acc_column_names = ['trunk_acc_x', 'trunk_acc_y', 'trunk_acc_z', 'pelvis_acc_x',
                     'r_shank_acc_x', 'r_shank_acc_y', 'r_shank_acc_z',
                     'l_foot_acc_x', 'l_foot_acc_y', 'l_foot_acc_z', 'r_foot_acc_x', 'r_foot_acc_y', 'r_foot_acc_z']
 
-
-l_offset = sio.loadmat(processed_data_path + 'offset_plate1.mat')  # load mat file
-l_offset = l_offset['offset_plate1'][0]  # extract data from the mat file
-
-r_offset = sio.loadmat(processed_data_path + 'offset_plate2.mat')  # load mat file
-r_offset = r_offset['offset_plate2'][0]  # extract data from the mat file
+# set filter parameters
+filter_order = 4
+wn_force = 50 / (1000 / 2)  # unified frequency
+b_force_plate, a_force_plate = butter(filter_order, wn_force, btype='low')
+wn_marker = 6 / 50
+b_marker, a_marker = butter(filter_order, wn_marker, btype='low')
 
 for gait_name in gait_names:
     gait_file_path = processed_data_path + 'GaitData\gait_' + gait_name + '.csv'
     gait_data = pd.read_csv(gait_file_path)
+    gait_data_len = gait_data.shape[0]
+
+    if cut_zero_data:
+        gait_data = gait_data[gait_data.f_2_z != -1.0]
 
     # initialize training y
     l_knee_l_training = np.concatenate((l_knee_l_training, gait_data.as_matrix(
@@ -112,27 +121,6 @@ for gait_name in gait_names:
     # initialize testing x
     acc_testing = np.concatenate((acc_testing, gait_data.as_matrix(columns=acc_column_names)[-test_set_len:]))
 
-
-
-
-# use low pass filter to filter marker data
-filter_order = 4
-wn_marker = 6 / 50
-b_marker, a_marker = butter(filter_order, wn_marker, btype='low')
-l_knee_l_testing = filtfilt(b_marker, a_marker, l_knee_l_testing, axis=0)
-l_knee_r_testing = filtfilt(b_marker, a_marker, l_knee_r_testing, axis=0)
-
-# modification of offset
-# l_offset[0] = -l_offset[0]
-# r_offset[0] = -r_offset[0]
-# l_offset[0] += 20
-# r_offset[0] += -20
-
-l_cop_training += l_offset
-r_cop_training += r_offset
-l_cop_testing += l_offset
-r_cop_testing += r_offset
-
 # as for knee_side, 0 represents left knee, 1 represents right knee
 # as for data_set, 0 for training, 1 for testing
 dynamic_var[subject_name].set_data(l_knee_l_training, l_knee_r_training,
@@ -149,59 +137,60 @@ KAM_data_r_training = dynamic_var[subject_name].get_KAM(data_set=0, knee_side=1)
 KAM_data_l_testing = dynamic_var[subject_name].get_KAM(data_set=1, knee_side=0)
 KAM_data_r_testing = dynamic_var[subject_name].get_KAM(data_set=1, knee_side=1)
 
-# reshape data so that sklearn could be used
-# KAM_data_l_training.reshape([KAM_data_l_training.shape[0], 1])
-# KAM_data_r_training.reshape((KAM_data_r_training.shape[0], 1))
-# KAM_data_l_testing.reshape(KAM_data_l_testing.shape[0], 1)
-# KAM_data_r_testing.reshape(KAM_data_r_testing.shape[0], 1)
-
-
-
 
 # plt.figure()
-# plt.plot(KAM_data_l)  # check the KAM data
+# plt.plot(KAM_data_l_training)  # check the KAM data
 # plt.figure()
-# plt.plot(KAM_data_r)  # check the KAM data
+# plt.plot(KAM_data_l_testing)  # check the KAM data
 # plt.show()
 
 
-def method_evaluation(model):
+def method_evaluation_right(model):
+    model.fit(acc_training, KAM_data_r_training)
+    score = model.score(acc_testing, KAM_data_r_testing)
+    result = model.predict(acc_testing)
+    plt.figure()
+    plt.plot(KAM_data_r_testing, 'b', label='true value')
+    plt.plot(result, 'r', label='predicted value')
+    for i_gait in range(1, gait_num + 1):
+        plt.plot((test_set_len * i_gait, test_set_len * i_gait), (-0.5, 0.5), 'y--')
+    plt.title('score: %f' % score)
+    plt.legend()
+
+
+def method_evaluation_left(model):
     model.fit(acc_training, KAM_data_l_training)
     score = model.score(acc_testing, KAM_data_l_testing)
     result = model.predict(acc_testing)
     plt.figure()
     plt.plot(KAM_data_l_testing, 'b', label='true value')
     plt.plot(result, 'r', label='predicted value')
+    for i_gait in range(1, gait_num + 1):
+        plt.plot((test_set_len * i_gait, test_set_len * i_gait), (-0.5, 0.5), 'y--')
     plt.title('score: %f' % score)
     plt.legend()
 
-#
+
 # from sklearn import tree
 # model_decision_tree = tree.DecisionTreeRegressor()
 # method_evaluation(model_decision_tree)
-#
+
 # from sklearn import svm
 # model_SVR = svm.SVR()
 # method_evaluation(model_SVR)
 
 # from sklearn import neighbors
 # model_KNN = neighbors.KNeighborsRegressor()
-# method_evaluation(model_KNN)
+# method_evaluation_left(model_KNN)
+# method_evaluation_right(model_KNN)
 
 from sklearn import ensemble
 model_random_forest = ensemble.RandomForestRegressor()
-method_evaluation(model_random_forest)
+method_evaluation_left(model_random_forest)
+method_evaluation_right(model_random_forest)
+
+# # check the acc data
+# plt.figure()
+# plt.plot(acc_training[:,  23])
 
 plt.show()
-
-
-
-
-
-
-
-
-
-
-
-

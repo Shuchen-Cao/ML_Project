@@ -1,12 +1,12 @@
-% this file is used to 
-
+% this file is used to check hitting ground point and get the walking period
 clc
 close all
 
 % the path of the raw data
-folder_path = 'D:\Tian\Research\Projects\ML Project\data\20171228\';
+date = '20171228\';
+folder_path = strcat('D:\Tian\Research\Projects\ML Project\data\', date);
 % the path of the processed xsens data
-processed_path = 'D:\Tian\Research\Projects\ML Project\processed_data\20171228\';
+processed_path = strcat('D:\Tian\Research\Projects\ML Project\processed_data\', date);
 sensor_num = 8;  % the number of sensor
 gait_num = 7;  % the number of gaits
 
@@ -47,7 +47,6 @@ for i_gait = 1:gait_num
     gait_name = eval(['gait_names.g', num2str(i_gait)]);
     file_left_foot = strcat(folder_path, gait_name, xsens_file_names.s7);
     file_right_foot = strcat(folder_path, gait_name, xsens_file_names.s8);
-
     
     data_left_foot = mtbFileLoader(file_left_foot);
     data_right_foot = mtbFileLoader(file_right_foot);
@@ -56,26 +55,26 @@ for i_gait = 1:gait_num
     xsens_interval_current = get_walking_interval(data_left_foot, frame_xsens(4));
     xsens_interval(:, i_gait) = xsens_interval_current;
     
-    figure
-    scrsz = get(0,'ScreenSize');
-    set(gcf,'Position',scrsz);
-    % check the cut point
-    subplot(2, 1, 1);
-    plot(data_left_foot(:, 4)); hold on
-    plot(xsens_interval_current(1), data_left_foot(xsens_interval_current(1), 4), '*');
-    plot(xsens_interval_current(2), data_left_foot(xsens_interval_current(2), 4), '*');
-    plot(xsens_interval_current(3), data_left_foot(xsens_interval_current(3), 4), '*');
-    plot(xsens_interval_current(4), data_left_foot(xsens_interval_current(4), 4), '*');
-    subplot(2, 1, 2);
-    plot(data_right_foot(:, 4)); hold on
-    plot(xsens_interval_current(1), data_right_foot(xsens_interval_current(1), 4), '*');
-    plot(xsens_interval_current(2), data_right_foot(xsens_interval_current(2), 4), '*');
-    plot(xsens_interval_current(3), data_right_foot(xsens_interval_current(3), 4), '*');
-    plot(xsens_interval_current(4), data_right_foot(xsens_interval_current(4), 4), '*');
+%     figure
+%     scrsz = get(0,'ScreenSize');
+%     set(gcf,'Position',scrsz);
+%     % check the cut point
+%     subplot(2, 1, 1);
+%     plot(data_left_foot(:, 4)); hold on
+%     plot(xsens_interval_current(1), data_left_foot(xsens_interval_current(1), 4), '*');
+%     plot(xsens_interval_current(2), data_left_foot(xsens_interval_current(2), 4), '*');
+%     plot(xsens_interval_current(3), data_left_foot(xsens_interval_current(3), 4), '*');
+%     plot(xsens_interval_current(4), data_left_foot(xsens_interval_current(4), 4), '*');
+%     subplot(2, 1, 2);
+%     plot(data_right_foot(:, 4)); hold on
+%     plot(xsens_interval_current(1), data_right_foot(xsens_interval_current(1), 4), '*');
+%     plot(xsens_interval_current(2), data_right_foot(xsens_interval_current(2), 4), '*');
+%     plot(xsens_interval_current(3), data_right_foot(xsens_interval_current(3), 4), '*');
+%     plot(xsens_interval_current(4), data_right_foot(xsens_interval_current(4), 4), '*');
 
     % 6 for acc, gyr and 8 for 8 sensors
     data = zeros(xsens_interval_current(2) - xsens_interval_current(1) + 1, 6, 8);
-    for i_sensor = 1:sensor_num - 2
+    for i_sensor = 1:sensor_num - 2  % 6 xsenses except left and right foot
         xsens_name = eval(['xsens_file_names.s', num2str(i_sensor)]);
         file_name = strcat(folder_path, gait_name, xsens_name);
         
@@ -96,16 +95,13 @@ for i_gait = 1:gait_num
     vicon_interval(:, i_gait) = xsens_interval_current(1:2) + frame_diff;
 end
 
-
-% xlrange_vicon = 'C6:J7';
-% xlswrite(sync_file, vicon_interval, 2, xlrange_vicon);
-% xlrange_xsens = 'C2:J3';
-% xlswrite(sync_file, xsens_interval(1:2, :), 2, xlrange_xsens);
+% write the sync data to the excel file
+xlrange_vicon = 'C6:J7';
+xlswrite(sync_file, vicon_interval, 2, xlrange_vicon);
+xlrange_xsens = 'C2:J3';
+xlswrite(sync_file, xsens_interval(1:2, :), 2, xlrange_xsens);
 
 beep();
-
-
-
 
 
 
@@ -119,8 +115,8 @@ for i_start = start_frame + 400:check_interval:size(data_left_foot, 1)
         break;
     end
 end
-margin_start = 300;
-margin_end = 400;
+margin_start = 450;  % 开头多剪掉的部分
+margin_end = 700;  % 结尾多剪掉的部分
 interval(1) = i_start + margin_start + check_interval / 2;
 
 for i_end = i_start + margin_start:check_interval:size(data_left_foot, 1)

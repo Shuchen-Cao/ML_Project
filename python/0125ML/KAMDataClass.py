@@ -26,12 +26,10 @@ class KAMData(object):
         # easy to prove that dot(vertical_vector, knee_vector) = 0
         vertical_vector = x_vector - knee_vector * \
             (inner1d(x_vector, knee_vector) / inner1d(knee_vector, knee_vector))[:, None]
-        # vertical_vector = np.apply_along_axis(self.__correct_x_vector_direction, axis=1, arr=vertical_vector)
         vertical_vector = vertical_vector / norm(vertical_vector, axis=1)[:, None]
         force_arm = (knee_center - cop) / 1000  # mm to m
         KAM_raw = np.cross(force_arm, force)
-        KAM = inner1d(KAM_raw, vertical_vector)
-              # / (self.__weight * self.__height)
+        KAM = inner1d(KAM_raw, vertical_vector) / (self.__weight * self.__height)
         if data_set == 0:
             if knee_side == 0:
                 self.__l_KAM_training = -KAM

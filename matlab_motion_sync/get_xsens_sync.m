@@ -1,4 +1,4 @@
-% this function is used to get the 
+% this function is used to get the xsens peaks
 
 close all
 clc
