@@ -3,10 +3,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import butter
-
-import tensorflow as tf
-
+from sklearn import preprocessing
 from KAMDataClass import KAMData
 import csv
 
@@ -62,14 +59,15 @@ acc_column_names = ['trunk_acc_x', 'trunk_acc_y', 'trunk_acc_z', 'pelvis_acc_x',
                     'r_thigh_acc_x', 'r_thigh_acc_y', 'r_thigh_acc_z',
                     'l_shank_acc_x', 'l_shank_acc_y', 'l_shank_acc_z',
                     'r_shank_acc_x', 'r_shank_acc_y', 'r_shank_acc_z',
-                    'l_foot_acc_x', 'l_foot_acc_y', 'l_foot_acc_z', 'r_foot_acc_x', 'r_foot_acc_y', 'r_foot_acc_z']
+                    'l_foot_acc_x', 'l_foot_acc_y', 'l_foot_acc_z', 'r_foot_acc_x', 'r_foot_acc_y', 'r_foot_acc_z'
+                    # , 'trunk_gyr_x', 'trunk_gyr_y', 'trunk_gyr_z', 'pelvis_gyr_x', 'pelvis_gyr_y', 'pelvis_gyr_z',
+                    # 'l_thigh_gyr_x', 'l_thigh_gyr_y', 'l_thigh_gyr_z',
+                    # 'r_thigh_gyr_x', 'r_thigh_gyr_y', 'r_thigh_gyr_z',
+                    # 'l_shank_gyr_x', 'l_shank_gyr_y', 'l_shank_gyr_z',
+                    # 'r_shank_gyr_x', 'r_shank_gyr_y', 'r_shank_gyr_z',
+                    # 'l_foot_gyr_x', 'l_foot_gyr_y', 'l_foot_gyr_z', 'r_foot_gyr_x', 'r_foot_gyr_y', 'r_foot_gyr_z'
+                    ]
 
-# set filter parameters
-filter_order = 4
-wn_force = 50 / (1000 / 2)  # unified frequency
-b_force_plate, a_force_plate = butter(filter_order, wn_force, btype='low')
-wn_marker = 6 / 50
-b_marker, a_marker = butter(filter_order, wn_marker, btype='low')
 
 for gait_name in gait_names:
     gait_file_path = processed_data_path + 'GaitData\gait_' + gait_name + '.csv'
@@ -136,13 +134,34 @@ KAM_data_l_training = dynamic_var[subject_name].get_KAM(data_set=0, knee_side=0)
 KAM_data_r_training = dynamic_var[subject_name].get_KAM(data_set=0, knee_side=1)
 KAM_data_l_testing = dynamic_var[subject_name].get_KAM(data_set=1, knee_side=0)
 KAM_data_r_testing = dynamic_var[subject_name].get_KAM(data_set=1, knee_side=1)
-
+KAM_data_training = np.column_stack([KAM_data_l_training, KAM_data_r_training])
+KAM_data_testing = np.column_stack([KAM_data_l_testing, KAM_data_r_testing])
 
 # plt.figure()
 # plt.plot(KAM_data_l_training)  # check the KAM data
 # plt.figure()
 # plt.plot(KAM_data_l_testing)  # check the KAM data
 # plt.show()
+
+# # Standard scaler
+# standard_scaler = preprocessing.StandardScaler().fit(acc_training)
+# acc_training = standard_scaler.transform(acc_training)
+# acc_testing = standard_scaler.transform(acc_testing)
+
+# # Max min scaler
+# min_max_scaler = preprocessing.MinMaxScaler().fit(acc_training)
+# acc_training = min_max_scaler.transform(acc_training)
+# acc_testing = min_max_scaler.transform(acc_testing)
+
+# # Robust scaler
+# robust_scaler = preprocessing.RobustScaler().fit(acc_training)
+# acc_training = robust_scaler.transform(acc_training)
+# acc_testing = robust_scaler.transform(acc_testing)
+
+# # Regularization
+# regulizer = preprocessing.Normalizer().fit(acc_training)
+# acc_training = regulizer.transform(acc_training)
+# acc_testing = regulizer.transform(acc_testing)
 
 
 def method_evaluation_right(model):
@@ -154,7 +173,7 @@ def method_evaluation_right(model):
     plt.plot(result, 'r', label='predicted value')
     for i_gait in range(1, gait_num + 1):
         plt.plot((test_set_len * i_gait, test_set_len * i_gait), (-0.5, 0.5), 'y--')
-    plt.title('score: %f' % score)
+    plt.title('R2: %f' % score)
     plt.legend()
 
 
@@ -167,9 +186,43 @@ def method_evaluation_left(model):
     plt.plot(result, 'r', label='predicted value')
     for i_gait in range(1, gait_num + 1):
         plt.plot((test_set_len * i_gait, test_set_len * i_gait), (-0.5, 0.5), 'y--')
-    plt.title('score: %f' % score)
+    plt.title('R2: %f' % score)
     plt.legend()
 
+
+def method_evaluation_both(model):
+    model.fit(acc_training, KAM_data_training)
+    score = model.score(acc_testing, KAM_data_testing)
+    result = model.predict(acc_testing)
+    plt.figure()
+    plt.plot(KAM_data_testing[:, 0], 'b', label='true value')
+    plt.plot(result[:, 0], 'r', label='predicted value')
+    plt.title('R2: %f' % score)
+    plt.legend()
+    plt.figure()
+    plt.plot(KAM_data_testing[:, 1], 'b', label='true value')
+    plt.plot(result[:, 1], 'r', label='predicted value')
+    plt.title('R2: %f' % score)
+    plt.legend()
+
+
+
+def NN_evaluation(model):
+    model.compile(loss='categorical_crossentropy', optimizer='adadelta', metrics=['accuracy'])
+    # model.fit(acc_training, KAM_data_training)
+    model.fit(acc_training, KAM_data_training, batch_size=500, epochs=20)
+    result = model.predict(acc_testing)
+    score = 1
+    plt.figure()
+    plt.plot(KAM_data_testing[:, 0], 'b', label='true value')
+    plt.plot(result[:, 0], 'r', label='predicted value')
+    plt.title('R2: %f' % score)
+    plt.legend()
+    plt.figure()
+    plt.plot(KAM_data_testing[:, 1], 'b', label='true value')
+    plt.plot(result[:, 1], 'r', label='predicted value')
+    plt.title('R2: %f' % score)
+    plt.legend()
 
 # from sklearn import tree
 # model_decision_tree = tree.DecisionTreeRegressor()
@@ -179,18 +232,39 @@ def method_evaluation_left(model):
 # model_SVR = svm.SVR()
 # method_evaluation(model_SVR)
 
+# from sklearn import ensemble
+# model_random_forest = ensemble.RandomForestRegressor()
+# # method_evaluation_left(model_random_forest)
+# # method_evaluation_right(model_random_forest)
+# method_evaluation_both(model_random_forest)
+
+# from sklearn import linear_model
+# model_ridge = linear_model.Ridge()
+# method_evaluation_both(model_ridge)
+
 # from sklearn import neighbors
-# model_KNN = neighbors.KNeighborsRegressor()
-# method_evaluation_left(model_KNN)
-# method_evaluation_right(model_KNN)
+# model_KNN = neighbors.KNeighborsRegressor(n_neighbors=8)
+# # method_evaluation_left(model_KNN)
+# # method_evaluation_right(model_KNN)
+# method_evaluation_both(model_KNN)
 
-from sklearn import ensemble
-model_random_forest = ensemble.RandomForestRegressor()
-method_evaluation_left(model_random_forest)
-method_evaluation_right(model_random_forest)
 
-# # check the acc data
-# plt.figure()
-# plt.plot(acc_training[:,  23])
+from keras.models import *
+from keras.layers import *
+
+model_bp = Sequential()
+model_bp.add(Dense(12, input_dim=x_column_num))
+model_bp.add(Activation('relu'))
+# model_bp.add(Dropout(0.5))
+
+model_bp.add(Dense(6))
+model_bp.add(Activation('relu'))
+# model_bp.add(Dropout(0.5))
+
+model_bp.add(Dense(2))
+model_bp.add(Activation('softmax'))
+
+NN_evaluation(model_bp)
+
 
 plt.show()
