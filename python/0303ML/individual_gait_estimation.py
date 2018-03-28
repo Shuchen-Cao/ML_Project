@@ -176,17 +176,17 @@ def method_evaluation_both(model):
     plt.title('R2: %f' % score)
     plt.legend()
 
-from sklearn import svm
-model_SVR = svm.SVR()
-method_evaluation_both(model_SVR)
+# from sklearn import svm
+# model_SVR = svm.SVR()
+# method_evaluation_both(model_SVR)
 
 # from sklearn import neighbors
 # model_KNN = neighbors.KNeighborsRegressor()
 # method_evaluation_both(model_KNN)
 
-# from sklearn import ensemble
-# model_random_forest = ensemble.RandomForestRegressor()
-# method_evaluation_both(model_random_forest)
+from sklearn import ensemble
+model_random_forest = ensemble.RandomForestRegressor()
+method_evaluation_both(model_random_forest)
 
 # # check the acc data
 # plt.figure()

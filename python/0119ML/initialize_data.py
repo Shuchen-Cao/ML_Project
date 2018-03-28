@@ -28,7 +28,7 @@ sync_sheet = sync_file.sheets()[1]
 sync_vicon_raw1 = sync_sheet.row_values(5)  # the vicon start frame of each gait is stored in the 5th column
 sync_vicon_raw2 = sync_sheet.row_values(6)  # the vicon end frame of each gait is stored in the 6th column
 sync_vicon = np.matrix([sync_vicon_raw1[2:2 + gait_num], sync_vicon_raw2[2:2 + gait_num]])
-sync_vicon += -1  # try to set offset
+sync_vicon += -2  # offset with -2 has the best performance
 sync_vicon = sync_vicon.astype(int)  # transfer the start frame as int
 
 # get offset
@@ -74,8 +74,8 @@ for gait_name in gait_names:
     # filter the force data
     force_data = force_data_raw[:, 1:]
     force_data = filtfilt(b_force_plate, a_force_plate, force_data, axis=0)  # filtering
-    force_data = np.column_stack((force_data_raw[:, 0], force_data))
-    force_data_range = range(start_row * 10 - 1, end_row * 10, 10)
+    force_data = np.column_stack((force_data_raw[:, 0], force_data))  # stack the time sample
+    force_data_range = range((start_row + 1) * 10, (end_row + 1) * 10 + 1, 10)  # !!! changes
     force_data = force_data[force_data_range]
 
     # trajectory info are at the end of vicon export file
@@ -100,7 +100,7 @@ for gait_name in gait_names:
     data_column_names = get_data_names(file_path_vicon, marker_offset - 1)  # get standard column names
     data.columns = data_column_names  # change column names to the standard name
     dynamic_var[object_name].set_data(data)  # pass the data to the matrix
-    # save as csv
+    # # save as csv
     dynamic_var[object_name].save_as_csv(save_path)  # save as csv
     dynamic_var[object_name].clear_old_csv(save_path, object_name)  # delete the former file
     i_gait += 1  # prepare to process next gait data
